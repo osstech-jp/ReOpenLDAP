@@ -463,7 +463,7 @@ OL_ARG_ENABLE(wrappers,[    --enable-wrappers	  enable tcp wrapper support], no)
 dnl ----------------------------------------------------------------
 dnl SLAPD Backend Options
 slapd_backends="mdb bdb dnssrv hdb ldap meta monitor ndb null passwd perl \
-	relay shell sock sql"
+	relay shell sock sql wt"
 
 AC_ARG_ENABLE(xxslapbackends,[
 SLAPD Backend Options:])
@@ -499,6 +499,8 @@ OL_ARG_ENABLE(shell,[    --enable-shell	  enable shell backend],
 OL_ARG_ENABLE(sock,[    --enable-sock	  enable sock backend],
 	no, [no yes mod], ol_enable_backends)dnl
 OL_ARG_ENABLE(sql,[    --enable-sql	  enable sql backend],
+	no, [no yes mod], ol_enable_backends)dnl
+OL_ARG_ENABLE(wt,[    --enable-wt		  enable WiredTiger backend],
 	no, [no yes mod], ol_enable_backends)dnl
 
 dnl ----------------------------------------------------------------
@@ -1947,6 +1949,33 @@ if test $ol_enable_ndb != no ; then
 	fi
 fi
 
+dnl ----------------------------------------------------------------
+dnl WiredTiger
+ol_link_wt=no
+if test $ol_enable_wt != no ; then
+    AC_CHECK_PROG(PKGCONFIG,pkg-config,yes)
+    if test "$PKGCONFIG" != yes ; then
+        AC_MSG_ERROR([could not locate pkg-config])
+    fi
+    WT_INCS=`pkg-config --cflags wiredtiger`
+    WT_LIBS=`pkg-config --libs wiredtiger`
+
+    save_CFLAGS="$CFLAGS"
+    save_LDFLAGS="$LDFLAGS"
+    CFLAGS="$WT_INCS"
+    CPPFLAGS="$WT_INCS"
+    LDFLAGS="$WT_LIBS"
+    AC_CHECK_HEADERS([wiredtiger.h])
+    AC_CHECK_LIB(wiredtiger,wiredtiger_version,[: ok],[
+        AC_MSG_ERROR([could not locate wiredtiger library])
+    ])
+    CFLAGS="$save_CFLAGS"
+    CPPFLAGS="$save_CPPFLAGS"
+    LDFLAGS="$save_LDFLAGS"
+    SLAPD_LIBS="$SLAPD_LIBS \$(WT_LIBS)"
+    ol_link_wt=yes
+fi
+
 #dnl ----------------------------------------------------------------
 #
 # LY: libuci was never used ever, including in the original OpenLDAP. (2.4.x, 2.5.x).
@@ -3165,6 +3194,7 @@ AC_CONFIG_FILES(
 		servers/slapd/back-perl/Makefile
 		servers/slapd/back-shell/Makefile servers/slapd/shell-backends/Makefile
 		servers/slapd/back-sql/Makefile
+		servers/slapd/back-wt/Makefile
 
 	doc/man/Makefile
 	doc/man/ru/Makefile
